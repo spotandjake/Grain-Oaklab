@@ -1,0 +1,91 @@
+/*
+ * Copyright (c) 2020- Juha Järvi
+
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted.
+
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+ * REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+ * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+ * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+ * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
+ */
+
+/**
+ * A library for working with the [OakLab color space](https://bottosson.github.io/posts/oklab/)
+ */
+module OakLab
+
+from "number" include Number
+
+// SRGB
+provide let linearize = x => {
+  let x = x / 255
+
+  if (x <= 0.04045) {
+    x / 12.92
+  } else {
+    (x + 0.055) / 1.055 ** 2.4
+  }
+}
+
+provide let delinearize = x => {
+  let x = if (x <= 0.0031308) {
+    x * 12.92
+  } else {
+    x ** (1 / 2.4) * 1.055 - 0.055
+  }
+  return Number.round(x * 255)
+}
+
+// RGB - OakLab
+let cube = x => x * x * x
+
+/**
+ * Converts the OakLab color space to RGB
+ *
+ * @param l: The colors perceived lightness
+ * @param a: The colors position between red and green
+ * @param b: The colors position between yellow and blue
+ * @returns The RGB values
+*/
+provide let oklab2rgb = (l, a, b) => {
+  let a = a * 0.27
+  let b = b * 0.27
+
+  let m = cube(l - 0.1055613458 * a - 0.0638541728 * b)
+  let s = cube(l - 0.0894841775 * a - 1.2914855480 * b)
+  let l = cube(l + 0.3963377774 * a + 0.2158037573 * b)
+
+  return [
+    delinearize(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s),
+    delinearize(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s),
+    delinearize(-0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s),
+  ]
+}
+
+/**
+ * Converts the RGB color space to OakLab
+ *
+ * @param r: The amount of red
+ * @param g: The amount of green
+ * @param b: The amount of blue
+ * @returns The OakLab values
+*/
+provide let rgb2oklab = (r, g, b) => {
+  let r = linearize(r)
+  let g = linearize(g)
+  let b = linearize(b)
+
+  let l = (0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b) ** (1/3)
+  let m = (0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b) ** (1/3)
+  let s = (0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b) ** (1/3)
+
+  return [>
+    0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
+    (1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s) / 0.27,
+    (0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s) / 0.27,
+  ]
+}
